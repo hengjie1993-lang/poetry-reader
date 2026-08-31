@@ -3,7 +3,7 @@
 > 面向「接手修改本项目」的 AI 工具或开发者。读完本文即可安全改动，无需重新踩坑。
 > 项目地址：`D:\WorkBuddy-Results\poetry-reader`
 > 线上地址：https://hengjie1993-lang.github.io/poetry-reader/
-> 当前版本：**v16**（`APP_VERSION = '16'`，最后一次提交 `e3c8778`）
+> 当前版本：**v17**（`APP_VERSION = '17'`，最后一次提交 `622b219`）
 
 ---
 
@@ -16,7 +16,7 @@
 | `poems.json` | 升 `APP_VERSION`（因为数据请求带 `?v=` 版本戳） | 手机端读到旧数据 |
 | 纯注释/文档 | 无需升版 | — |
 
-**当前版本号是 16，下一个改动请升到 17。**
+**当前版本号是 17，下一个改动请升到 18。**
 
 ---
 
@@ -199,6 +199,7 @@ python build_poems.py
 | 版本 | 现象 | 根因 | 解法 / 教训 |
 |---|---|---|---|
 | **v16** | 回退 v15 后汉字/拼音整体交错、重叠 | 逐字 `char-pair` 里长拼音 `white-space:nowrap` 溢出字块，与相邻拼音重叠，连带让汉字视觉错位 | 正文改用 **「一行汉字 + 一行拼音」** 分离布局，两行各自自然舒展，彻底消除交错 |
+| **v17** | 作者名/标题里的生僻字（如「向子諲」的「諲」）在手机上显示成豆腐块或空白 | 原数据里这些字是 **CJK 扩展区**异体字（如 U+2C907），常见手机系统字体缺字 → 渲染失败 | `poems.json` 已把这些扩展区字替换为 **CJK 基本区通行字**（U+8AF2 等）；`build_poems.py` 加 `CLEAN_MAP` 防重跑复现。**新增诗句前务必先扫一遍是否含 CJK 扩展区字符** |
 | **v15** | 强制等宽字块后拼音被压成一团（尤其长拼音如 `céngxiāng`） | `1.6em` 等宽无法容纳舒展的拼音，多个字母压缩在一个窄块内 | 回退等宽：`.char-pair` 宽度仍由内容决定，拼音舒展优先。字间距轻微不匀换拼音可读性 |
 | **v14** | 诗词正文字间距忽近忽远 | `.char-pair` 宽度由「汉字/拼音谁更宽」决定，不同拼音长度差异导致字块宽度不一 | 正文 `.line-flex .char-pair` 强制等宽 `1.6em`，汉字间距真正均匀；但牺牲了拼音可读性，**v15 回退** |
 | **v13** | 每次打开都固定显示《静夜思》 | `idx` 初始 `0`，`shuffle()` 只在点按钮时触发 | `mounted()` 拉完数据后自动 `shuffle()`；随机源用 `crypto.getRandomValues` |
@@ -271,7 +272,7 @@ curl -s "https://hengjie1993-lang.github.io/poetry-reader/sw.js" | grep -oE "con
 curl -s "https://hengjie1993-lang.github.io/poetry-reader/poems.json?v=14" | python -c "import json,sys; print('首数:', len(json.load(sys.stdin)))"
 ```
 
-预期：`APP_VERSION = '16'`、`CACHE = 'poetry-v16'`、首数 500。
+预期：`APP_VERSION = '17'`、`CACHE = 'poetry-v17'`、首数 500。
 
 ### 本地预览
 ```bash
