@@ -1,5 +1,5 @@
-const CACHE = 'poetry-v12';
-const APP_VERSION = '12';
+const CACHE = 'poetry-v13';
+const APP_VERSION = '13';
 const FILES = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {

@@ -133,6 +133,16 @@ const mq = window.matchMedia('(max-width: 640px)');
 - `sw.js` 对 `poems.json` 和 `index.html` 一律 **network-first**；其余静态资源 cache-first。
 - `sw.js` 的 `fetch` 失败时返回 **503 JSON 而非 index.html**（绝不能把 HTML 当 JSON 返回，会崩）。
 
+### 4.5 随机行为（v13 起）
+
+- **每次打开页面 = 随机一首**，不再固定为第一首《静夜思》。
+- 实现：`mounted()` 拉到 `poems.json` 后立刻调一次 `this.shuffle()`。
+- 随机源 `randInt(n)`：优先 `crypto.getRandomValues`（密码学安全随机），不可用时回退 `Math.random()`。
+  n=500 量级下取模偏差约 1e-7，可忽略。
+- 点「随机」按钮走的是**同一个** `shuffle()`，行为一致。
+- ⚠️ **首屏不是第一首属于预期行为，不是 bug**。若要改回固定起手，
+  删掉 `mounted()` 里的 `this.shuffle()` 即可（`data` 中 `idx:0` 会让它回到第一首）。
+
 ---
 
 ## 5. 数据结构
