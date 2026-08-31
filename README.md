@@ -20,6 +20,7 @@
 - 全文经 opencc 繁→简转换，按「名家 + 短诗」筛选后收敛为约 500 首。
 - 拼音由前端 **[pinyin-pro](https://github.com/zh-lx/pinyin-pro)（MIT）** 实时生成，未使用任何无许可数据源。
 - 结论：发布内容仅含 MIT 授权的原文文本与 MIT 拼音库，许可干净。
+- 本项目代码同样以 **MIT** 发布，详见 [LICENSE](LICENSE)。
 
 ## 本地预览
 ```bash
