@@ -87,39 +87,30 @@
     .author-block .han{letter-spacing:1px;}
     .author-block .py{font-size:var(--fs-py); color:var(--muted); opacity:.85;}
 
-    /* ===== 诗词正文：逐字对应拼音 ===== */
+    /* ===== 诗词正文：一行汉字 + 一行拼音 =====
+       逐字 char-pair 无法同时满足「汉字间距均匀」和「拼音舒展」：
+       字块宽度随拼音长度波动，短拼音字块窄、长拼音字块宽，导致汉字视觉上忽近忽远；
+       且 white-space:nowrap 的拼音会溢出字块，与相邻拼音重叠，整行看起来像汉字也交错。
+       改成两行分离布局后，汉字行和拼音行各自自然舒展，彻底消除交错。 */
     .verse{margin:clamp(8px,2vw,12px) 0;}
     .verse.para-break{margin-top:clamp(18px,5vw,26px);}
-    .line-flex{
-      display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-end;
-      gap: 0.08em 0.22em;
+    .poem-line{
+      text-align:center;
       padding: clamp(4px,1.4vw,8px) 0;
     }
-    .char-pair{
-      display:inline-flex; flex-direction:column; align-items:center; justify-content:flex-end;
-      min-width:1.05em; max-width:2.6em;
+    .poem-line .han-line{
+      font-size:var(--fs-line); color:var(--ink); line-height:1.5; letter-spacing:0.08em;
     }
-    .char-pair .han{
-      font-size:var(--fs-line); color:var(--ink); line-height:1.15; text-align:center; letter-spacing:0;
-    }
-    .char-pair .py{
-      font-size:var(--fs-py);
-      color:var(--muted);
+    .poem-line .py-line{
+      font-size:var(--fs-py); color:var(--muted); line-height:1.3;
+      margin-top: clamp(3px,0.9vw,6px);
       font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
-      line-height:1.1; margin-top: clamp(3px,0.9vw,6px);
-      height:1.15em; white-space:nowrap;
+      letter-spacing:0.02em;
     }
-    .char-pair .py.empty{visibility:hidden;}
-    .char-pair.punct{min-width:auto; padding:0 0.02em; opacity:.7;}
-    .char-pair.punct .han{font-size: clamp(15px,4.2vw,20px);}
-    .char-pair.punct .py{visibility:hidden;}
 
-    /* 隐藏拼音时：不渲染拼音节点，并收紧字宽与行距，避免行间留白 */
+    /* 隐藏拼音时：收紧行距，避免行间留白 */
     .card.no-py .verse{margin:clamp(6px,1.6vw,10px) 0;}
     .card.no-py .verse.para-break{margin-top:clamp(15px,4vw,22px);}
-    .line-flex.no-py{padding:clamp(3px,1vw,5px) 0;}
-    .line-flex.no-py .char-pair{min-width:0; max-width:none;}
-    .line-flex.no-py .char-pair.punct{padding:0 0.01em;}
 
     .nav{
       position:fixed;left:0;right:0;bottom:0;display:flex;gap:10px;justify-content:center;
@@ -180,11 +171,9 @@
           </span>
         </div>
         <div :class="['verse', { 'para-break': line.paraBreak }]" v-for="(line,i) in poemLines" :key="i">
-          <div :class="['line-flex', {'no-py': !showPinyin}]">
-            <span v-for="(c,j) in line.blocks" :key="j" :class="['char-pair', {punct: c.isPunct}]">
-              <span class="han">{{ c.char }}</span>
-              <span v-if="showPinyin && !c.isPunct" :class="['py', {empty: !c.py}]">{{ c.py }}</span>
-            </span>
+          <div class="poem-line">
+            <div class="han-line">{{ line.han }}</div>
+            <div v-if="showPinyin" class="py-line">{{ line.py }}</div>
           </div>
         </div>
       </div>
@@ -214,7 +203,7 @@
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js"></script>
   <script>
-    const APP_VERSION = '15';
+    const APP_VERSION = '16';
     const { createApp } = Vue;
     // 随机取 [0, n) 整数：优先用密码学安全随机源 crypto.getRandomValues，
     // 不可用时回退 Math.random()。（n=500 量级下取模偏差约 1e-7，可忽略）
@@ -280,7 +269,11 @@
           this.current.paragraphs.forEach((para, pIdx) => {
             const segments = this.isMobileMode ? splitClauses(para) : [para];
             segments.forEach((seg, sIdx) => {
-              lines.push({ blocks: this.buildBlocks(seg), paraBreak: pIdx > 0 && sIdx === 0 });
+              lines.push({
+                han: seg,
+                py: this.showPinyin ? toPinyin(seg, {toneType:'symbol', type:'string'}) : '',
+                paraBreak: pIdx > 0 && sIdx === 0
+              });
             });
           });
           return lines;
