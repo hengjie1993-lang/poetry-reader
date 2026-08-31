@@ -1,17 +1,35 @@
-const CACHE = 'poetry-v2';
+const CACHE = 'poetry-v6';
+const APP_VERSION = '6';
 const FILES = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(c => c.addAll(FILES))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'GET_VERSION') {
+    e.ports[0] && e.ports[0].postMessage({ version: APP_VERSION });
+  } else if (e.data && e.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
+
   // poems.json 与 index.html 始终网络优先，确保数据最新；离线时回退缓存
   if (url.pathname.endsWith('poems.json') || url.pathname.endsWith('index.html')) {
     e.respondWith(
@@ -23,6 +41,7 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
+
   // 其余静态资源缓存优先
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
