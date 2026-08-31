@@ -214,7 +214,7 @@
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js"></script>
   <script>
-    const APP_VERSION = '11';
+    const APP_VERSION = '12';
     const { createApp } = Vue;
     function toPinyin(text, opts={toneType:'symbol', type:'string'}){
       try {
@@ -282,23 +282,28 @@
       },
       methods: {
         // 把一段文字拆成「汉字块」，逐字配拼音；标点粘附到前一个汉字，不单独占位
+        // 行首标点（如〔宋〕的左括号）没有前字可粘，单独成块会被容器左侧裁剪，
+        // 因此先缓存，等遇到第一个汉字时一并前缀进去。
         buildBlocks(text){
           const chars = text.split('');
           const pys = this.showPinyin ? pinyinArray(text) : [];
           const blocks = [];
+          let prefix = '';
           for(let i=0;i<chars.length;i++){
             const ch = chars[i];
             const py = pys[i] || '';
             if(isPunct(ch)){
-              if(blocks.length && !blocks[blocks.length-1].isPunct){
+              if(blocks.length){
                 blocks[blocks.length-1].char += ch;
               }else{
-                blocks.push({char:ch, py:'', isPunct:true});
+                prefix += ch;
               }
             }else{
-              blocks.push({char:ch, py:py, isPunct:false});
+              blocks.push({char: prefix + ch, py:py, isPunct:false});
+              prefix = '';
             }
           }
+          if(prefix) blocks.push({char: prefix, py:'', isPunct:true});
           return blocks;
         },
         ensureIndex(){
