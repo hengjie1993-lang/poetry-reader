@@ -59,6 +59,22 @@ def s(t):
 def norm_line(p):
     return p.strip()
 
+# 部分生僻字位于 CJK 扩展区（扩展 A/B/C/D/E），常见手机系统字体缺字会显示成
+# 豆腐块（空白）。统一替换为 CJK 基本区的通行字，保证绝大多数设备可正常显示。
+CLEAN_MAP = {
+    '\U0002C907': '諲',  # 向子諲（原为扩展 E 区异体字）
+    '\u4360':      '篱', # 接篱（白接篱，头巾）
+    '\U0002B5E7': '餗',  # 饪餗
+    '\U0002B40C': '輧',  # 朱輧（车）
+    '\U0002CD0A': '驎',  # 骐驎（同麒麟）
+    '\U00023A3C': '殢',  # 须殢（沉溺）
+}
+
+def clean_text(t):
+    if not t:
+        return ""
+    return ''.join(CLEAN_MAP.get(c, c) for c in t)
+
 def too_long(paras):
     if not (2 <= len(paras) <= 12):
         return True
@@ -163,6 +179,13 @@ def main():
     # 重新编号
     for i, p in enumerate(uniq, 1):
         p["id"] = i
+
+    # 清洗扩展区生僻字（保证移动端可显示，避免豆腐块）
+    for p in uniq:
+        p["title"] = clean_text(p["title"])
+        p["author"] = clean_text(p["author"])
+        p["dynasty"] = clean_text(p["dynasty"])
+        p["paragraphs"] = [clean_text(x) for x in p["paragraphs"]]
 
     out_path = os.path.join(ROOT, "poems.json")
     with open(out_path, "w", encoding="utf-8") as f:
