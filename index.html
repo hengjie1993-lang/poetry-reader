@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#f3ede1" />
-  <title>诗词 · 亲子朗读</title>
+  <title>小诗囊 · 亲子朗读</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <style>
     :root{
@@ -36,7 +36,7 @@
       padding:calc(env(safe-area-inset-top) + 10px) var(--pad-x) calc(120px + env(safe-area-inset-bottom));
     }
     .topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;}
-    .brand{font-size:var(--fs-brand);font-weight:600;letter-spacing:3px;white-space:nowrap;}
+    .brand{font-size:var(--fs-brand);font-weight:600;letter-spacing:2px;white-space:nowrap;}
     .brand .dot{color:var(--accent);}
     .top-actions{display:flex;gap:8px;flex-shrink:0;}
     .btn{
@@ -95,6 +95,13 @@
     .char-pair.punct .han{font-size: clamp(15px,4.2vw,20px);}
     .char-pair.punct .py{visibility:hidden;}
 
+    /* 隐藏拼音时：不渲染拼音节点，并收紧字宽与行距，避免行间留白 */
+    .card.no-py .verse{margin:clamp(6px,1.6vw,10px) 0;}
+    .card.no-py .verse.para-break{margin-top:clamp(15px,4vw,22px);}
+    .line-flex.no-py{padding:clamp(3px,1vw,5px) 0;}
+    .line-flex.no-py .char-pair{min-width:0; max-width:none;}
+    .line-flex.no-py .char-pair.punct{padding:0 0.01em;}
+
     .nav{
       position:fixed;left:0;right:0;bottom:0;display:flex;gap:10px;justify-content:center;
       padding:12px var(--pad-x) calc(12px + env(safe-area-inset-bottom));
@@ -120,7 +127,7 @@
 <body>
   <div id="app" v-cloak>
     <div class="topbar">
-      <div class="brand">诗<span class="dot">·</span>词</div>
+      <div class="brand">小<span class="dot">诗</span>囊</div>
       <div class="top-actions">
         <button class="btn ghost" @click="showPinyin=!showPinyin">{{ showPinyin ? '隐藏拼音' : '显示拼音' }}</button>
         <button class="btn" @click="shuffle">随机</button>
@@ -139,16 +146,15 @@
     </div>
 
     <div class="stage" v-if="current">
-      <div class="card">
+      <div :class="['card', {'no-py': !showPinyin}]">
         <div class="title">{{ current.title }}</div>
         <div class="title-rule"></div>
         <div class="author">〔{{ current.dynasty }}〕{{ current.author }}</div>
         <div :class="['verse', { 'para-break': line.paraBreak }]" v-for="(line,i) in poemLines" :key="i">
-          <div class="line-flex">
+          <div :class="['line-flex', {'no-py': !showPinyin}]">
             <span v-for="(c,j) in line.blocks" :key="j" :class="['char-pair', {punct: c.isPunct}]">
               <span class="han">{{ c.char }}</span>
-              <span v-if="!c.isPunct" :class="['py', {empty: !showPinyin || !c.py}]">{{ showPinyin ? c.py : '' }}</span>
-              <span v-else class="py empty"></span>
+              <span v-if="showPinyin && !c.isPunct" :class="['py', {empty: !c.py}]">{{ c.py }}</span>
             </span>
           </div>
         </div>
@@ -179,7 +185,7 @@
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js"></script>
   <script>
-    const APP_VERSION = '8';
+    const APP_VERSION = '9';
     const { createApp } = Vue;
     function toPinyin(text, opts={toneType:'symbol', type:'string'}){
       try {
