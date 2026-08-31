@@ -69,7 +69,8 @@
     .author{text-align:center;color:var(--muted);font-size:var(--fs-author);margin-bottom:clamp(16px,5vw,26px);letter-spacing:1px;}
 
     /* ===== 诗词正文：逐字对应拼音 ===== */
-    .verse{margin:clamp(16px,4.5vw,24px) 0;}
+    .verse{margin:clamp(8px,2vw,12px) 0;}
+    .verse.para-break{margin-top:clamp(18px,5vw,26px);}
     .line-flex{
       display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-end;
       gap: 0.06em 0.12em;
@@ -142,7 +143,7 @@
         <div class="title">{{ current.title }}</div>
         <div class="title-rule"></div>
         <div class="author">〔{{ current.dynasty }}〕{{ current.author }}</div>
-        <div class="verse" v-for="(line,i) in poemLines" :key="i">
+        <div :class="['verse', { 'para-break': line.paraBreak }]" v-for="(line,i) in poemLines" :key="i">
           <div class="line-flex">
             <span v-for="(c,j) in line.blocks" :key="j" :class="['char-pair', {punct: c.isPunct}]">
               <span class="han">{{ c.char }}</span>
@@ -178,7 +179,7 @@
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js"></script>
   <script>
-    const APP_VERSION = '7';
+    const APP_VERSION = '8';
     const { createApp } = Vue;
     function toPinyin(text, opts={toneType:'symbol', type:'string'}){
       try {
@@ -199,9 +200,23 @@
     function isPunct(ch){
       return /[\p{P}\s]/u.test(ch);
     }
+    // 手机端：按诗词小句拆分（逗号、句号、顿号、问号、叹号、分号），一句一行；保留标点在末尾
+    function splitClauses(para){
+      const clauses = [];
+      let start = 0;
+      for(let i=0;i<para.length;i++){
+        if(/[，。！？、；：]/.test(para[i])){
+          clauses.push(para.slice(start, i+1));
+          start = i+1;
+        }
+      }
+      if(start < para.length) clauses.push(para.slice(start));
+      if(!clauses.length) clauses.push(para);
+      return clauses;
+    }
     createApp({
       data(){
-        return { all:[], query:'', idx:0, showList:false, showPinyin:true, loaded:false, _indexed:false };
+        return { all:[], query:'', idx:0, showList:false, showPinyin:true, loaded:false, _indexed:false, isMobileMode:false };
       },
       computed: {
         view(){
@@ -213,26 +228,31 @@
         current(){ return this.view[this.idx] || null; },
         poemLines(){
           if(!this.current) return [];
-          return this.current.paragraphs.map(para => {
-            const chars = para.split('');
-            const pys = this.showPinyin ? pinyinArray(para) : [];
-            const blocks = [];
-            for(let i=0;i<chars.length;i++){
-              const ch = chars[i];
-              const py = pys[i] || '';
-              if(isPunct(ch)){
-                // 标点/空格粘附到前一个汉字块，不再单独占一个窄位
-                if(blocks.length && !blocks[blocks.length-1].isPunct){
-                  blocks[blocks.length-1].char += ch;
+          const lines = [];
+          this.current.paragraphs.forEach((para, pIdx) => {
+            const segments = this.isMobileMode ? splitClauses(para) : [para];
+            segments.forEach((seg, sIdx) => {
+              const chars = seg.split('');
+              const pys = this.showPinyin ? pinyinArray(seg) : [];
+              const blocks = [];
+              for(let i=0;i<chars.length;i++){
+                const ch = chars[i];
+                const py = pys[i] || '';
+                if(isPunct(ch)){
+                  // 标点/空格粘附到前一个汉字块，不再单独占一个窄位
+                  if(blocks.length && !blocks[blocks.length-1].isPunct){
+                    blocks[blocks.length-1].char += ch;
+                  }else{
+                    blocks.push({char:ch, py:'', isPunct:true});
+                  }
                 }else{
-                  blocks.push({char:ch, py:'', isPunct:true});
+                  blocks.push({char:ch, py:py, isPunct:false});
                 }
-              }else{
-                blocks.push({char:ch, py:py, isPunct:false});
               }
-            }
-            return { blocks };
+              lines.push({ blocks, paraBreak: pIdx > 0 && sIdx === 0 });
+            });
           });
+          return lines;
         }
       },
       watch: {
@@ -261,6 +281,16 @@
         }
       },
       async mounted(){
+        // 响应式判断：手机端按小句分行，Web 端整句自然换行
+        const mq = window.matchMedia('(max-width: 640px)');
+        this.isMobileMode = mq.matches;
+        try {
+          mq.addEventListener('change', e => this.isMobileMode = e.matches);
+        } catch(e) {
+          // 旧版浏览器回退
+          mq.addListener(e => this.isMobileMode = e.matches);
+        }
+
         const urls = ['poems.json?v=' + APP_VERSION, 'poems.json'];
         let lastErr = null;
         for(const url of urls){
