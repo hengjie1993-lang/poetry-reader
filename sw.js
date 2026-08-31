@@ -1,5 +1,5 @@
-const CACHE = 'poetry-v6';
-const APP_VERSION = '6';
+const CACHE = 'poetry-v7';
+const APP_VERSION = '7';
 const FILES = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
@@ -30,14 +30,26 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
 
-  // poems.json 与 index.html 始终网络优先，确保数据最新；离线时回退缓存
-  if (url.pathname.endsWith('poems.json') || url.pathname.endsWith('index.html')) {
+  // poems.json 始终网络优先，离线时回退缓存；绝不能返回 index.html 导致 JSON 解析失败
+  if (url.pathname.endsWith('poems.json')) {
     e.respondWith(
       fetch(e.request).then(resp => {
         const copy = resp.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy)).catch(()=>{});
         return resp;
-      }).catch(() => caches.match(e.request))
+      }).catch(() => caches.match(e.request).then(c => c || new Response('[]', { status: 503, headers: { 'content-type': 'application/json' } })))
+    );
+    return;
+  }
+
+  // index.html 也网络优先，保证新版页面能立刻生效
+  if (url.pathname.endsWith('index.html') || url.pathname === '/' || url.pathname.endsWith('/poetry-reader/')) {
+    e.respondWith(
+      fetch(e.request).then(resp => {
+        const copy = resp.clone();
+        caches.open(CACHE).then(c => c.put(e.request, copy)).catch(()=>{});
+        return resp;
+      }).catch(() => caches.match(e.request).then(c => c || caches.match('./index.html')))
     );
     return;
   }

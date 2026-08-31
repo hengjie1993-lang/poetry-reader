@@ -178,7 +178,7 @@
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js"></script>
   <script>
-    const APP_VERSION = '6';
+    const APP_VERSION = '7';
     const { createApp } = Vue;
     function toPinyin(text, opts={toneType:'symbol', type:'string'}){
       try {
@@ -261,69 +261,37 @@
         }
       },
       async mounted(){
-        try{
-          const res = await fetch('poems.json?v=' + APP_VERSION, { cache:'no-cache' });
-          this.all = await res.json();
+        const urls = ['poems.json?v=' + APP_VERSION, 'poems.json'];
+        let lastErr = null;
+        for(const url of urls){
+          try{
+            const res = await fetch(url);
+            if(!res.ok){ lastErr = 'HTTP ' + res.status; continue; }
+            const ct = res.headers.get('content-type') || '';
+            if(!ct.includes('json')){ lastErr = '返回的不是 JSON(' + ct + ')'; continue; }
+            this.all = await res.json();
+            this.loaded = true;
+            lastErr = null;
+            break;
+          }catch(e){ lastErr = e && e.message ? e.message : String(e); }
+        }
+        if(lastErr){
           this.loaded = true;
-        }catch(e){
-          this.loaded = true;
-          alert('加载 poems.json 失败：请通过本地服务器或 GitHub Pages 打开（不要用 file:// 直接双击）。');
+          alert('加载诗词数据失败：' + lastErr + '\n请检查网络，或退出微信浮窗后重新打开链接。');
         }
         window.addEventListener('keydown', this.onKey);
       }
     }).mount('#app');
 
-    if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    // 微信内置浏览器对 Service Worker 支持差且缓存陷阱多，直接禁用；其他浏览器保留 PWA 能力
+    const isWechat = /MicroMessenger/i.test(navigator.userAgent);
+    if ('serviceWorker' in navigator && location.protocol === 'https:' && !isWechat) {
       window.addEventListener('load', () => {
-        // 处理旧版 Service Worker 缓存陷阱：检测版本不一致则强制清理并刷新
-        let updateToast = null;
-        function showUpdateToast(){
-          if(updateToast) return;
-          const div = document.createElement('div');
-          div.style.cssText = 'position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:100; background:#a23b2e; color:#fff; padding:10px 18px; border-radius:999px; font-size:14px; box-shadow:0 4px 12px rgba(0,0,0,.2);';
-          div.textContent = '发现新版本，点击刷新';
-          div.onclick = () => location.reload();
-          document.body.appendChild(div);
-          updateToast = div;
-        }
-
-        navigator.serviceWorker.getRegistrations().then(regs => {
-          if(!regs.length){
-            // 首次安装新版 SW
-            navigator.serviceWorker.register('sw.js?v=' + APP_VERSION).catch(()=>{});
-            return;
-          }
-          let needReload = false;
-          const checks = regs.map(reg => {
-            // 旧版 SW 可能缓存了自己，先尝试更新；更新事件触发则提示刷新
-            reg.addEventListener('updatefound', () => {
-              const newSw = reg.installing;
-              if(newSw){
-                newSw.addEventListener('statechange', () => {
-                  if(newSw.state === 'activated') showUpdateToast();
-                });
-              }
-            });
-            return reg.update().then(() => {
-              const active = reg.active;
-              // 如果当前激活的 SW 没有版本号或版本号低于 APP_VERSION，认为被困在旧缓存，强制注销并刷新
-              if(active && active.scriptURL && !active.scriptURL.includes('v='+APP_VERSION)){
-                needReload = true;
-                return reg.unregister();
-              }
-            }).catch(()=>{});
-          });
-          Promise.all(checks).then(() => {
-            if(needReload){
-              // 注销旧 SW 后必须刷新才能拿到最新页面，否则旧 SW 仍控制当前页
-              location.reload();
-            } else {
-              // 已经是新版或没有 SW，直接注册（带版本戳避免 HTTP 缓存）
-              navigator.serviceWorker.register('sw.js?v=' + APP_VERSION).catch(()=>{});
-            }
-          });
-        });
+        navigator.serviceWorker.register('sw.js?v=' + APP_VERSION).catch(()=>{});
       });
+    } else if ('serviceWorker' in navigator && isWechat) {
+      // 若已有旧 SW，注销掉避免它拦截 poems.json
+      navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(()=>{});
     }
   </script>
 </body>
