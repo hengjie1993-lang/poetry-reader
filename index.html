@@ -261,7 +261,7 @@
       },
       async mounted(){
         try{
-          const res = await fetch('poems.json', { cache:'no-cache' });
+          const res = await fetch('poems.json?v=4', { cache:'no-cache' });
           this.all = await res.json();
           this.loaded = true;
         }catch(e){
