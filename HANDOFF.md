@@ -3,7 +3,7 @@
 > 面向「接手修改本项目」的 AI 工具或开发者。读完本文即可安全改动，无需重新踩坑。
 > 项目地址：`D:\WorkBuddy-Results\poetry-reader`
 > 线上地址：https://hengjie1993-lang.github.io/poetry-reader/
-> 当前版本：**v15**（`APP_VERSION = '15'`，最后一次提交 `8249423`）
+> 当前版本：**v16**（`APP_VERSION = '16'`，最后一次提交 `e3c8778`）
 
 ---
 
@@ -16,7 +16,7 @@
 | `poems.json` | 升 `APP_VERSION`（因为数据请求带 `?v=` 版本戳） | 手机端读到旧数据 |
 | 纯注释/文档 | 无需升版 | — |
 
-**当前版本号是 15，下一个改动请升到 16。**
+**当前版本号是 16，下一个改动请升到 17。**
 
 ---
 
@@ -116,11 +116,30 @@ const mq = window.matchMedia('(max-width: 640px)');
 ```
 
 - **手机端**：`splitClauses(para)` 按 `，。！？、；：` 切小句，**一句一行**（工整）。
-- **宽屏**：整句靠 `flex-wrap` 自然换行。
+- **宽屏**：整句自然换行。
 
 段落间（如词的上/下阕）用 `paraBreak` 标记加大间距。
 
 > 经验：**手机端按语义小句强制分行，比"自动折行"工整得多**。长句（尤其宋词长短句）用自动折行会参差不齐。
+
+### 4.6 正文排版（v16 起）
+
+v16 之前正文用**逐字 `char-pair`**（每个字上方放对应拼音）。但实验证明：在单字块内无法同时满足「汉字间距均匀」和「拼音舒展」：
+- 字块宽度随拼音长度波动 → 汉字视觉上忽近忽远；
+- 长拼音 `white-space:nowrap` 溢出字块 → 与相邻拼音重叠，整行看起来像汉字也交错。
+
+**v16 改为「一行汉字 + 一行拼音」**：
+
+```html
+<div class="poem-line">
+  <div class="han-line">红蓼花香夹岸稠。</div>
+  <div class="py-line">hóng liǎo huā xiāng jiā àn chóu</div>
+</div>
+```
+
+- 汉字行和拼音行各自自然舒展，不再交错；
+- 标题 / 作者仍保留逐字 `char-pair`（字少，问题不明显）；
+- 代价：失去了"每个字正上方对应一个拼音"的直观感。
 
 ### 4.4 缓存策略（本项目历史重灾区）
 
@@ -179,6 +198,7 @@ python build_poems.py
 
 | 版本 | 现象 | 根因 | 解法 / 教训 |
 |---|---|---|---|
+| **v16** | 回退 v15 后汉字/拼音整体交错、重叠 | 逐字 `char-pair` 里长拼音 `white-space:nowrap` 溢出字块，与相邻拼音重叠，连带让汉字视觉错位 | 正文改用 **「一行汉字 + 一行拼音」** 分离布局，两行各自自然舒展，彻底消除交错 |
 | **v15** | 强制等宽字块后拼音被压成一团（尤其长拼音如 `céngxiāng`） | `1.6em` 等宽无法容纳舒展的拼音，多个字母压缩在一个窄块内 | 回退等宽：`.char-pair` 宽度仍由内容决定，拼音舒展优先。字间距轻微不匀换拼音可读性 |
 | **v14** | 诗词正文字间距忽近忽远 | `.char-pair` 宽度由「汉字/拼音谁更宽」决定，不同拼音长度差异导致字块宽度不一 | 正文 `.line-flex .char-pair` 强制等宽 `1.6em`，汉字间距真正均匀；但牺牲了拼音可读性，**v15 回退** |
 | **v13** | 每次打开都固定显示《静夜思》 | `idx` 初始 `0`，`shuffle()` 只在点按钮时触发 | `mounted()` 拉完数据后自动 `shuffle()`；随机源用 `crypto.getRandomValues` |
@@ -251,7 +271,7 @@ curl -s "https://hengjie1993-lang.github.io/poetry-reader/sw.js" | grep -oE "con
 curl -s "https://hengjie1993-lang.github.io/poetry-reader/poems.json?v=14" | python -c "import json,sys; print('首数:', len(json.load(sys.stdin)))"
 ```
 
-预期：`APP_VERSION = '15'`、`CACHE = 'poetry-v15'`、首数 500。
+预期：`APP_VERSION = '16'`、`CACHE = 'poetry-v16'`、首数 500。
 
 ### 本地预览
 ```bash
