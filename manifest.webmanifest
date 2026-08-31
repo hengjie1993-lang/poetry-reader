@@ -1,0 +1,10 @@
+{
+  "name": "诗词 · 亲子朗读",
+  "short_name": "诗词",
+  "description": "随时给孩子读的中国古诗词",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f3ede1",
+  "theme_color": "#f3ede1",
+  "lang": "zh-CN"
+}
