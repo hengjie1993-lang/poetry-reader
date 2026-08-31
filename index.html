@@ -90,8 +90,8 @@
       height:1.15em; white-space:nowrap;
     }
     .char-pair .py.empty{visibility:hidden;}
-    .char-pair.punct{min-width:auto; padding:0 0.03em;}
-    .char-pair.punct .han{font-size: clamp(15px,4.2vw,20px); opacity:.75;}
+    .char-pair.punct{min-width:auto; padding:0 0.02em; opacity:.7;}
+    .char-pair.punct .han{font-size: clamp(15px,4.2vw,20px);}
     .char-pair.punct .py{visibility:hidden;}
 
     .nav{
@@ -144,7 +144,7 @@
         <div class="author">〔{{ current.dynasty }}〕{{ current.author }}</div>
         <div class="verse" v-for="(line,i) in poemLines" :key="i">
           <div class="line-flex">
-            <span v-for="(c,j) in line.chars" :key="j" :class="['char-pair', {punct: c.isPunct}]">
+            <span v-for="(c,j) in line.blocks" :key="j" :class="['char-pair', {punct: c.isPunct}]">
               <span class="han">{{ c.char }}</span>
               <span v-if="!c.isPunct" :class="['py', {empty: !showPinyin || !c.py}]">{{ showPinyin ? c.py : '' }}</span>
               <span v-else class="py empty"></span>
@@ -215,13 +215,22 @@
           return this.current.paragraphs.map(para => {
             const chars = para.split('');
             const pys = this.showPinyin ? pinyinArray(para) : [];
-            return {
-              chars: chars.map((c,i) => ({
-                char: c,
-                py: pys[i] || '',
-                isPunct: isPunct(c)
-              }))
-            };
+            const blocks = [];
+            for(let i=0;i<chars.length;i++){
+              const ch = chars[i];
+              const py = pys[i] || '';
+              if(isPunct(ch)){
+                // 标点/空格粘附到前一个汉字块，不再单独占一个窄位
+                if(blocks.length && !blocks[blocks.length-1].isPunct){
+                  blocks[blocks.length-1].char += ch;
+                }else{
+                  blocks.push({char:ch, py:'', isPunct:true});
+                }
+              }else{
+                blocks.push({char:ch, py:py, isPunct:false});
+              }
+            }
+            return { blocks };
           });
         }
       },
