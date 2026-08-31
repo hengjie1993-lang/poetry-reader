@@ -3,7 +3,7 @@
 > 面向「接手修改本项目」的 AI 工具或开发者。读完本文即可安全改动，无需重新踩坑。
 > 项目地址：`D:\WorkBuddy-Results\poetry-reader`
 > 线上地址：https://hengjie1993-lang.github.io/poetry-reader/
-> 当前版本：**v14**（`APP_VERSION = '14'`，最后一次提交 `cdcc739`）
+> 当前版本：**v15**（`APP_VERSION = '15'`，最后一次提交 `8249423`）
 
 ---
 
@@ -16,7 +16,7 @@
 | `poems.json` | 升 `APP_VERSION`（因为数据请求带 `?v=` 版本戳） | 手机端读到旧数据 |
 | 纯注释/文档 | 无需升版 | — |
 
-**当前版本号是 14，下一个改动请升到 15。**
+**当前版本号是 15，下一个改动请升到 16。**
 
 ---
 
@@ -179,7 +179,8 @@ python build_poems.py
 
 | 版本 | 现象 | 根因 | 解法 / 教训 |
 |---|---|---|---|
-| **v14** | 诗词正文字间距忽近忽远 | `.char-pair` 宽度由「汉字/拼音谁更宽」决定，不同拼音长度差异导致字块宽度不一 | 正文 `.line-flex .char-pair` 强制等宽 `1.6em`，汉字间距真正均匀；标点块仍保持 `auto` |
+| **v15** | 强制等宽字块后拼音被压成一团（尤其长拼音如 `céngxiāng`） | `1.6em` 等宽无法容纳舒展的拼音，多个字母压缩在一个窄块内 | 回退等宽：`.char-pair` 宽度仍由内容决定，拼音舒展优先。字间距轻微不匀换拼音可读性 |
+| **v14** | 诗词正文字间距忽近忽远 | `.char-pair` 宽度由「汉字/拼音谁更宽」决定，不同拼音长度差异导致字块宽度不一 | 正文 `.line-flex .char-pair` 强制等宽 `1.6em`，汉字间距真正均匀；但牺牲了拼音可读性，**v15 回退** |
 | **v13** | 每次打开都固定显示《静夜思》 | `idx` 初始 `0`，`shuffle()` 只在点按钮时触发 | `mounted()` 拉完数据后自动 `shuffle()`；随机源用 `crypto.getRandomValues` |
 | **v12** | 作者行显示成「宋〕王安石」，左括号被裁 | 行首标点无前字可粘 → 退化成独立窄块（`min-width:0`），全角括号超出块宽被裁 | 行首标点缓存后**前缀给首个汉字**（见 §4.2） |
 | **v11** | 长标题/作者名的拼音互相挤成一团 | v10 为求字距均匀，给标题拼音用了 `position:absolute` + `translateX(-50%)`，脱离布局宽度，长拼音贴到邻居 | 改回 **flex 列布局**，让拼音参与宽度计算。**可读性 > 字距均匀** |
@@ -250,7 +251,7 @@ curl -s "https://hengjie1993-lang.github.io/poetry-reader/sw.js" | grep -oE "con
 curl -s "https://hengjie1993-lang.github.io/poetry-reader/poems.json?v=14" | python -c "import json,sys; print('首数:', len(json.load(sys.stdin)))"
 ```
 
-预期：`APP_VERSION = '14'`、`CACHE = 'poetry-v14'`、首数 500。
+预期：`APP_VERSION = '15'`、`CACHE = 'poetry-v15'`、首数 500。
 
 ### 本地预览
 ```bash
