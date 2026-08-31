@@ -64,9 +64,24 @@
       padding:clamp(22px,6vw,34px) clamp(14px,4vw,22px);margin-top:6px;
       box-shadow:0 3px 16px rgba(80,60,30,.06);
     }
-    .title{font-size:var(--fs-title);font-weight:600;text-align:center;letter-spacing:2px;line-height:1.3;}
     .title-rule{width:48px;height:3px;background:var(--accent);margin:14px auto 18px;border-radius:2px;opacity:.85;}
-    .author{text-align:center;color:var(--muted);font-size:var(--fs-author);margin-bottom:clamp(16px,5vw,26px);letter-spacing:1px;}
+
+    /* 标题 / 作者：逐字拼音。拼音绝对定位，避免长拼音(chuang/zhuang)撑宽字距 */
+    .tp-block{display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start;}
+    .tp-block.has-py{row-gap:17px; padding-bottom:17px;}
+    .tp-block .char-pair{position:relative; display:inline-flex; justify-content:center; min-width:1em;}
+    .tp-block .char-pair.punct{min-width:0; opacity:.75;}
+    .tp-block .char-pair .py{
+      position:absolute; top:100%; left:50%; transform:translateX(-50%);
+      white-space:nowrap; line-height:1.1; margin-top:2px;
+      font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+    }
+    .title-block{font-size:var(--fs-title); line-height:1.3;}
+    .title-block .han{font-weight:600; letter-spacing:2px;}
+    .title-block .py{font-size:var(--fs-py); color:var(--muted);}
+    .author-block{font-size:var(--fs-author); color:var(--muted); margin-bottom:clamp(14px,4.5vw,22px);}
+    .author-block .han{letter-spacing:1px;}
+    .author-block .py{font-size:calc(var(--fs-py) * 0.88); color:var(--muted); opacity:.85;}
 
     /* ===== 诗词正文：逐字对应拼音 ===== */
     .verse{margin:clamp(8px,2vw,12px) 0;}
@@ -147,9 +162,19 @@
 
     <div class="stage" v-if="current">
       <div :class="['card', {'no-py': !showPinyin}]">
-        <div class="title">{{ current.title }}</div>
+        <div :class="['title-block','tp-block',{'has-py': showPinyin}]">
+          <span v-for="(c,j) in titleBlocks" :key="j" :class="['char-pair',{punct:c.isPunct}]">
+            <span class="han">{{ c.char }}</span>
+            <span v-if="showPinyin && !c.isPunct" class="py">{{ c.py }}</span>
+          </span>
+        </div>
         <div class="title-rule"></div>
-        <div class="author">〔{{ current.dynasty }}〕{{ current.author }}</div>
+        <div :class="['author-block','tp-block',{'has-py': showPinyin}]">
+          <span v-for="(c,j) in authorBlocks" :key="j" :class="['char-pair',{punct:c.isPunct}]">
+            <span class="han">{{ c.char }}</span>
+            <span v-if="showPinyin && !c.isPunct" class="py">{{ c.py }}</span>
+          </span>
+        </div>
         <div :class="['verse', { 'para-break': line.paraBreak }]" v-for="(line,i) in poemLines" :key="i">
           <div :class="['line-flex', {'no-py': !showPinyin}]">
             <span v-for="(c,j) in line.blocks" :key="j" :class="['char-pair', {punct: c.isPunct}]">
@@ -185,7 +210,7 @@
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js"></script>
   <script>
-    const APP_VERSION = '9';
+    const APP_VERSION = '10';
     const { createApp } = Vue;
     function toPinyin(text, opts={toneType:'symbol', type:'string'}){
       try {
@@ -238,34 +263,40 @@
           this.current.paragraphs.forEach((para, pIdx) => {
             const segments = this.isMobileMode ? splitClauses(para) : [para];
             segments.forEach((seg, sIdx) => {
-              const chars = seg.split('');
-              const pys = this.showPinyin ? pinyinArray(seg) : [];
-              const blocks = [];
-              for(let i=0;i<chars.length;i++){
-                const ch = chars[i];
-                const py = pys[i] || '';
-                if(isPunct(ch)){
-                  // 标点/空格粘附到前一个汉字块，不再单独占一个窄位
-                  if(blocks.length && !blocks[blocks.length-1].isPunct){
-                    blocks[blocks.length-1].char += ch;
-                  }else{
-                    blocks.push({char:ch, py:'', isPunct:true});
-                  }
-                }else{
-                  blocks.push({char:ch, py:py, isPunct:false});
-                }
-              }
-              lines.push({ blocks, paraBreak: pIdx > 0 && sIdx === 0 });
+              lines.push({ blocks: this.buildBlocks(seg), paraBreak: pIdx > 0 && sIdx === 0 });
             });
           });
           return lines;
-        }
+        },
+        titleBlocks(){ return this.current ? this.buildBlocks(this.current.title) : []; },
+        authorText(){ return this.current ? '〔' + this.current.dynasty + '〕' + this.current.author : ''; },
+        authorBlocks(){ return this.current ? this.buildBlocks(this.authorText) : []; }
       },
       watch: {
         query(){ this.idx = 0; },
         view(){ if(this.idx >= this.view.length) this.idx = 0; }
       },
       methods: {
+        // 把一段文字拆成「汉字块」，逐字配拼音；标点粘附到前一个汉字，不单独占位
+        buildBlocks(text){
+          const chars = text.split('');
+          const pys = this.showPinyin ? pinyinArray(text) : [];
+          const blocks = [];
+          for(let i=0;i<chars.length;i++){
+            const ch = chars[i];
+            const py = pys[i] || '';
+            if(isPunct(ch)){
+              if(blocks.length && !blocks[blocks.length-1].isPunct){
+                blocks[blocks.length-1].char += ch;
+              }else{
+                blocks.push({char:ch, py:'', isPunct:true});
+              }
+            }else{
+              blocks.push({char:ch, py:py, isPunct:false});
+            }
+          }
+          return blocks;
+        },
         ensureIndex(){
           if(this._indexed) return;
           for(const p of this.all){
