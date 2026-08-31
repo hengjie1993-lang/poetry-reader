@@ -3,7 +3,7 @@
 > 面向「接手修改本项目」的 AI 工具或开发者。读完本文即可安全改动，无需重新踩坑。
 > 项目地址：`D:\WorkBuddy-Results\poetry-reader`
 > 线上地址：https://hengjie1993-lang.github.io/poetry-reader/
-> 当前版本：**v12**（`APP_VERSION = '12'`，最后一次提交 `9808f95`）
+> 当前版本：**v14**（`APP_VERSION = '14'`，最后一次提交 `cdcc739`）
 
 ---
 
@@ -16,7 +16,7 @@
 | `poems.json` | 升 `APP_VERSION`（因为数据请求带 `?v=` 版本戳） | 手机端读到旧数据 |
 | 纯注释/文档 | 无需升版 | — |
 
-**当前版本号是 12，下一个改动请升到 13。**
+**当前版本号是 14，下一个改动请升到 15。**
 
 ---
 
@@ -179,6 +179,8 @@ python build_poems.py
 
 | 版本 | 现象 | 根因 | 解法 / 教训 |
 |---|---|---|---|
+| **v14** | 诗词正文字间距忽近忽远 | `.char-pair` 宽度由「汉字/拼音谁更宽」决定，不同拼音长度差异导致字块宽度不一 | 正文 `.line-flex .char-pair` 强制等宽 `1.6em`，汉字间距真正均匀；标点块仍保持 `auto` |
+| **v13** | 每次打开都固定显示《静夜思》 | `idx` 初始 `0`，`shuffle()` 只在点按钮时触发 | `mounted()` 拉完数据后自动 `shuffle()`；随机源用 `crypto.getRandomValues` |
 | **v12** | 作者行显示成「宋〕王安石」，左括号被裁 | 行首标点无前字可粘 → 退化成独立窄块（`min-width:0`），全角括号超出块宽被裁 | 行首标点缓存后**前缀给首个汉字**（见 §4.2） |
 | **v11** | 长标题/作者名的拼音互相挤成一团 | v10 为求字距均匀，给标题拼音用了 `position:absolute` + `translateX(-50%)`，脱离布局宽度，长拼音贴到邻居 | 改回 **flex 列布局**，让拼音参与宽度计算。**可读性 > 字距均匀** |
 | **v10** | 标题和人名没有拼音 | 只对正文做了注音 | 抽出 `buildBlocks` 复用到 title / author |
@@ -245,10 +247,10 @@ git push origin main
 # 等 30 秒再验
 curl -s "https://hengjie1993-lang.github.io/poetry-reader/index.html" | grep -oE "APP_VERSION = '[0-9]+'"
 curl -s "https://hengjie1993-lang.github.io/poetry-reader/sw.js" | grep -oE "const CACHE = '[^']+'"
-curl -s "https://hengjie1993-lang.github.io/poetry-reader/poems.json?v=13" | python -c "import json,sys; print('首数:', len(json.load(sys.stdin)))"
+curl -s "https://hengjie1993-lang.github.io/poetry-reader/poems.json?v=14" | python -c "import json,sys; print('首数:', len(json.load(sys.stdin)))"
 ```
 
-预期：`APP_VERSION = '13'`、`CACHE = 'poetry-v13'`、首数 500。
+预期：`APP_VERSION = '14'`、`CACHE = 'poetry-v14'`、首数 500。
 
 ### 本地预览
 ```bash
