@@ -114,18 +114,6 @@
     .char-pair.punct .han{font-size: clamp(15px,4.2vw,20px);}
     .char-pair.punct .py{visibility:hidden;}
 
-    /* 正文强制等宽字块：每个汉字（含粘附标点）占据相同宽度，解决字间距忽近忽远。
-       宽度 1.6em 可容纳绝大多数单字拼音；极个别长拼音允许溢出，由 gap 缓冲。 */
-    .line-flex .char-pair{
-      width:1.6em; min-width:1.6em; max-width:1.6em;
-      position:relative;
-    }
-    .line-flex .char-pair.punct{
-      width:auto; min-width:auto; max-width:none;
-      padding:0 0.02em;
-    }
-    .line-flex.no-py .char-pair{width:auto; min-width:0; max-width:none;}
-
     /* 隐藏拼音时：不渲染拼音节点，并收紧字宽与行距，避免行间留白 */
     .card.no-py .verse{margin:clamp(6px,1.6vw,10px) 0;}
     .card.no-py .verse.para-break{margin-top:clamp(15px,4vw,22px);}
@@ -226,7 +214,7 @@
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js"></script>
   <script>
-    const APP_VERSION = '14';
+    const APP_VERSION = '15';
     const { createApp } = Vue;
     // 随机取 [0, n) 整数：优先用密码学安全随机源 crypto.getRandomValues，
     // 不可用时回退 Math.random()。（n=500 量级下取模偏差约 1e-7，可忽略）
