@@ -5,7 +5,7 @@
 > 名字取自唐代诗人李贺「锦囊觅句」的典故——古人随身带囊收存诗稿。「囊」即口袋，正合装在手机里随手取用的形态；加一「小」字，是给孩子的小口袋。
 
 - 公网地址（GitHub Pages）：`https://hengjie1993-lang.github.io/poetry-reader/`
-- 备用地址（CloudStudio）：`https://94c95579db704928bac803b152eb3b8b.app.workbuddy.link`
+- 上手前建议阅读 `HANDOFF.md`（项目交接手册：改动铁律、核心算法、踩坑清单）
 
 ## 功能
 - 顶栏搜索：标题 / 作者 / 朝代 / 正文 / 拼音，任意匹配
