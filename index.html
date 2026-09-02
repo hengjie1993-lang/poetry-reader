@@ -64,14 +64,22 @@
     .chip:active{transform:scale(.96);}
     .chip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
     .chip .n{opacity:.65;margin-left:4px;font-variant-numeric:tabular-nums;}
+    .btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
     .meta{font-size:var(--fs-meta);color:var(--muted);padding:10px 2px 4px;display:flex;justify-content:space-between;gap:8px;}
     .meta .count{font-variant-numeric:tabular-nums;}
     .stage{flex:1;display:flex;align-items:center;justify-content:center;width:100%;}
     .card{
+      position:relative;
       width:100%;background:var(--card);border:1px solid var(--line);border-radius:20px;
       padding:clamp(22px,6vw,34px) clamp(14px,4vw,22px);margin-top:6px;
       box-shadow:0 3px 16px rgba(80,60,30,.06);
     }
+    .fav-btn{position:absolute;top:10px;right:10px;width:38px;height:38px;border-radius:50%;
+      border:1px solid var(--line);background:var(--card);color:var(--muted);font-size:18px;line-height:1;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;
+      transition:transform .05s,color .15s,border-color .15s,background .15s;}
+    .fav-btn:active{transform:scale(.92);}
+    .fav-btn.on{color:#d99a2b;border-color:#e6c074;background:#fff7e6;}
     .title-rule{width:48px;height:3px;background:var(--accent);margin:14px auto 18px;border-radius:2px;opacity:.85;}
 
     /* 标题 / 作者：逐字拼音。用 flex 列布局，让拼音参与宽度，避免长拼音贴脸 */
@@ -159,6 +167,7 @@
     </div>
 
     <div class="genre-bar">
+      <button class="chip" :class="{active: showFavOnly}" @click="showFavOnly=!showFavOnly">★ 收藏{{ favorites.length ? ' ' + favorites.length : '' }}</button>
       <button v-for="g in genreOptions" :key="g.key" :class="['chip',{active: genreFilter===g.key}]" @click="genreFilter=g.key">
         {{ g.label }}<span class="n" v-if="g.count>0">{{ g.count }}</span>
       </button>
@@ -171,6 +180,7 @@
 
     <div class="stage" v-if="current">
       <div :class="['card', {'no-py': !showPinyin}]">
+        <button class="fav-btn" :class="{on: current && isFav(current)}" @click="toggleFav" :title="current && isFav(current) ? '取消收藏' : '收藏'">{{ (current && isFav(current)) ? '★' : '☆' }}</button>
         <div :class="['title-block','tp-block',{'has-py': showPinyin}]">
           <span v-for="(c,j) in titleBlocks" :key="j" :class="['char-pair',{punct:c.isPunct}]">
             <span class="han">{{ c.char }}</span>
@@ -194,6 +204,7 @@
     </div>
 
     <div class="loading" v-else-if="!loaded">正在加载诗词…</div>
+    <div class="empty" v-else-if="showFavOnly && !favorites.length">还没有收藏，点卡片右上角 ☆ 收藏一首吧</div>
     <div class="empty" v-else>没有匹配的诗</div>
 
     <div class="nav" v-if="view.length">
@@ -217,7 +228,7 @@
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js"></script>
   <script>
-    const APP_VERSION = '19';
+    const APP_VERSION = '20';
     const { createApp } = Vue;
     // 随机取 [0, n) 整数：优先用密码学安全随机源 crypto.getRandomValues，
     // 不可用时回退 Math.random()。（n=500 量级下取模偏差约 1e-7，可忽略）
@@ -267,7 +278,7 @@
     }
     createApp({
       data(){
-        return { all:[], query:'', genreFilter:'', idx:0, showList:false, showPinyin:true, loaded:false, _indexed:false, isMobileMode:false };
+        return { all:[], query:'', genreFilter:'', showFavOnly:false, favorites:[], idx:0, showList:false, showPinyin:true, loaded:false, _indexed:false, isMobileMode:false };
       },
       computed: {
         // 体裁筛选选项：统计各体裁数量，按固定顺序排列，未知体裁兜底追加
@@ -286,9 +297,11 @@
         view(){
           const q = this.query.trim().toLowerCase();
           const gf = this.genreFilter;
+          const favSet = this.showFavOnly ? new Set(this.favorites) : null;
           this.ensureIndex();
           return this.all.filter(p => {
             if(gf && (p.genre || '其他') !== gf) return false;
+            if(favSet && !favSet.has(this.favKey(p))) return false;
             if(q && !(p._search||'').includes(q)) return false;
             return true;
           });
@@ -316,6 +329,7 @@
       watch: {
         query(){ this.idx = 0; },
         genreFilter(){ this.idx = 0; },
+        showFavOnly(){ this.idx = 0; },
         view(){ if(this.idx >= this.view.length) this.idx = 0; }
       },
       methods: {
@@ -358,6 +372,19 @@
         shuffle(){ if(this.view.length) this.idx = randInt(this.view.length); },
         openList(){ this.showList = true; },
         selectFromList(i){ this.idx = i; this.showList = false; },
+        // 收藏键用「作者·标题」而非顺序 id，这样 poems.json 重建重排 id 也不会指错诗
+        favKey(p){ return p.author + '·' + p.title; },
+        isFav(p){ return this.favorites.includes(this.favKey(p)); },
+        toggleFav(){
+          const p = this.current; if(!p) return;
+          const k = this.favKey(p);
+          const i = this.favorites.indexOf(k);
+          if(i >= 0) this.favorites.splice(i, 1); else this.favorites.push(k);
+          this.persistFavs();
+        },
+        persistFavs(){
+          try { localStorage.setItem('poetry-reader-favs', JSON.stringify(this.favorites)); } catch(e){}
+        },
         onKey(e){
           if(this.showList) return;
           if(e.key==='ArrowLeft') this.prev();
@@ -374,6 +401,12 @@
           // 旧版浏览器回退
           mq.addListener(e => this.isMobileMode = e.matches);
         }
+
+        // 读取本地收藏（localStorage，离线可用，不依赖任何后端）
+        try {
+          const raw = localStorage.getItem('poetry-reader-favs');
+          if(raw) this.favorites = JSON.parse(raw) || [];
+        } catch(e){}
 
         const urls = ['poems.json?v=' + APP_VERSION, 'poems.json'];
         let lastErr = null;
