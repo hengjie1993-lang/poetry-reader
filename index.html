@@ -56,6 +56,14 @@
     .search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);
       width:26px;height:26px;border-radius:50%;border:none;background:var(--soft);color:var(--muted);
       font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .genre-bar{display:flex;gap:8px;overflow-x:auto;margin-top:10px;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    .genre-bar::-webkit-scrollbar{display:none;}
+    .chip{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:999px;
+      padding:6px 14px;font-size:var(--fs-py);font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0;
+      transition:background .15s,color .15s,border-color .15s;line-height:1;}
+    .chip:active{transform:scale(.96);}
+    .chip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+    .chip .n{opacity:.65;margin-left:4px;font-variant-numeric:tabular-nums;}
     .meta{font-size:var(--fs-meta);color:var(--muted);padding:10px 2px 4px;display:flex;justify-content:space-between;gap:8px;}
     .meta .count{font-variant-numeric:tabular-nums;}
     .stage{flex:1;display:flex;align-items:center;justify-content:center;width:100%;}
@@ -150,6 +158,12 @@
       <button class="search-clear" v-if="query" @click="query=''">×</button>
     </div>
 
+    <div class="genre-bar">
+      <button v-for="g in genreOptions" :key="g.key" :class="['chip',{active: genreFilter===g.key}]" @click="genreFilter=g.key">
+        {{ g.label }}<span class="n" v-if="g.count>0">{{ g.count }}</span>
+      </button>
+    </div>
+
     <div class="meta">
       <span class="count">共 {{ view.length }} 首</span>
       <span v-if="view.length">第 {{ idx+1 }} 首</span>
@@ -203,7 +217,7 @@
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js"></script>
   <script>
-    const APP_VERSION = '18';
+    const APP_VERSION = '19';
     const { createApp } = Vue;
     // 随机取 [0, n) 整数：优先用密码学安全随机源 crypto.getRandomValues，
     // 不可用时回退 Math.random()。（n=500 量级下取模偏差约 1e-7，可忽略）
@@ -253,14 +267,31 @@
     }
     createApp({
       data(){
-        return { all:[], query:'', idx:0, showList:false, showPinyin:true, loaded:false, _indexed:false, isMobileMode:false };
+        return { all:[], query:'', genreFilter:'', idx:0, showList:false, showPinyin:true, loaded:false, _indexed:false, isMobileMode:false };
       },
       computed: {
+        // 体裁筛选选项：统计各体裁数量，按固定顺序排列，未知体裁兜底追加
+        genreOptions(){
+          const counts = {};
+          for(const p of this.all){
+            const g = p.genre || '其他';
+            counts[g] = (counts[g] || 0) + 1;
+          }
+          const order = ['诗','词','曲','楚辞','诗经'];
+          const opts = [{ key:'', label:'全部', count:this.all.length }];
+          for(const g of order) if(counts[g]) opts.push({ key:g, label:g, count:counts[g] });
+          for(const g of Object.keys(counts)) if(!order.includes(g)) opts.push({ key:g, label:g, count:counts[g] });
+          return opts;
+        },
         view(){
           const q = this.query.trim().toLowerCase();
-          if(!q) return this.all;
+          const gf = this.genreFilter;
           this.ensureIndex();
-          return this.all.filter(p => (p._search||'').includes(q));
+          return this.all.filter(p => {
+            if(gf && (p.genre || '其他') !== gf) return false;
+            if(q && !(p._search||'').includes(q)) return false;
+            return true;
+          });
         },
         current(){ return this.view[this.idx] || null; },
         poemLines(){
@@ -284,6 +315,7 @@
       },
       watch: {
         query(){ this.idx = 0; },
+        genreFilter(){ this.idx = 0; },
         view(){ if(this.idx >= this.view.length) this.idx = 0; }
       },
       methods: {

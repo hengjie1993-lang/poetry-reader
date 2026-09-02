@@ -75,11 +75,13 @@ def clean_text(t):
         return ""
     return ''.join(CLEAN_MAP.get(c, c) for c in t)
 
-def too_long(paras):
+def too_long(paras, max_line=16):
+    # 唐诗/宋词短句每行通常 ≤16 字；诗经是四言两句式，单行可达 ~20 字，
+    # 故诗经收集器传 max_line=24，其余体裁保持 16 以免长诗混入。
     if not (2 <= len(paras) <= 12):
         return True
     for p in paras:
-        if len(p) > 16:
+        if len(p) > max_line:
             return True
     return False
 
@@ -98,7 +100,8 @@ def collect_tang():
             if not title or not paras or too_long(paras):
                 continue
             out.setdefault(au, []).append({
-                "title": title, "author": s(au), "dynasty": "唐", "paragraphs": paras
+                "title": title, "author": s(au), "dynasty": "唐",
+                "genre": "诗", "paragraphs": paras
             })
     return out
 
@@ -117,7 +120,8 @@ def collect_song():
             if not rhythmic or not paras or too_long(paras):
                 continue
             out.setdefault(au, []).append({
-                "title": rhythmic, "author": s(au), "dynasty": "宋", "paragraphs": paras
+                "title": rhythmic, "author": s(au), "dynasty": "宋",
+                "genre": "词", "paragraphs": paras
             })
     return out
 
@@ -129,14 +133,94 @@ def collect_shijing():
     for it in d:
         if it.get("title", "") in SHIJING_TITLES:
             paras = [norm_line(s(x)) for x in it.get("content", []) if x and x.strip()]
-            if paras and not too_long(paras):
+            # 诗经 content 有的按句、有的按章存储，单行长度参差；对儿童朗读而言
+            # 「章数 ≤12」才是合理门槛，单行长度放宽到 60（整章会自然换行显示）。
+            if paras and not too_long(paras, max_line=60):
                 out.append({"title": s(it["title"]), "author": "佚名",
-                            "dynasty": "先秦", "paragraphs": paras})
+                            "dynasty": "先秦", "genre": "诗经", "paragraphs": paras})
+    return out
+
+def collect_yuanqu():
+    """元曲（小令/短章）。yuanqu.json 含杂剧与散曲，用 too_long 仅收短小令。"""
+    d = fetch_json("元曲/yuanqu.json")
+    out = {}
+    if not d:
+        return out
+    for it in d:
+        au = it.get("author", "")
+        if not au:
+            continue
+        paras = [norm_line(s(x)) for x in it.get("paragraphs", []) if x and x.strip()]
+        title = s(it.get("title", "")).strip()
+        if not title or not paras or too_long(paras):
+            continue
+        out.setdefault(au, []).append({
+            "title": title, "author": s(au), "dynasty": "元",
+            "genre": "曲", "paragraphs": paras
+        })
+    return out
+
+def collect_chuci():
+    """楚辞（屈宋诸篇），content 为诗句数组。先秦。"""
+    d = fetch_json("楚辞/chuci.json")
+    out = {}
+    if not d:
+        return out
+    for it in d:
+        au = it.get("author", "") or "佚名"
+        content = it.get("content", []) or it.get("paragraphs", [])
+        paras = [norm_line(s(x)) for x in content if x and x.strip()]
+        title = s(it.get("title", "")).strip()
+        if not title or not paras or too_long(paras):
+            continue
+        out.setdefault(au, []).append({
+            "title": title, "author": s(au), "dynasty": "先秦",
+            "genre": "楚辞", "paragraphs": paras
+        })
+    return out
+
+def collect_nalan():
+    """纳兰性德词集，字段为 para（非 paragraphs）。清。"""
+    d = fetch_json("纳兰性德/纳兰性德诗集.json")
+    out = {}
+    if not d:
+        return out
+    for it in d:
+        au = it.get("author", "") or "纳兰性德"
+        paras = [norm_line(s(x)) for x in it.get("para", []) if x and x.strip()]
+        title = s(it.get("title", "")).strip()
+        if not title or not paras or too_long(paras):
+            continue
+        out.setdefault(au, []).append({
+            "title": title, "author": s(au), "dynasty": "清",
+            "genre": "词", "paragraphs": paras
+        })
+    return out
+
+def collect_caocao():
+    """曹操诗集，仅 title/paragraphs 两字段，作者统一为曹操。汉。"""
+    d = fetch_json("曹操诗集/caocao.json")
+    out = {}
+    if not d:
+        return out
+    for it in d:
+        paras = [norm_line(s(x)) for x in it.get("paragraphs", []) if x and x.strip()]
+        title = s(it.get("title", "")).strip()
+        if not title or not paras or too_long(paras):
+            continue
+        out.setdefault("曹操", []).append({
+            "title": title, "author": "曹操", "dynasty": "汉",
+            "genre": "诗", "paragraphs": paras
+        })
     return out
 
 def dedupe_key(p):
     first = p["paragraphs"][0] if p["paragraphs"] else ""
     return (p["author"], first)
+
+def guess_genre(dyn):
+    return {"唐": "诗", "宋": "词", "先秦": "诗经", "汉": "诗",
+            "元": "曲", "清": "词", "明": "诗"}.get(dyn, "诗")
 
 def main():
     print("抓取唐诗…", file=sys.stderr)
@@ -145,6 +229,14 @@ def main():
     song = collect_song()
     print("抓取诗经…", file=sys.stderr)
     shi = collect_shijing()
+    print("抓取元曲…", file=sys.stderr)
+    yuan = collect_yuanqu()
+    print("抓取楚辞…", file=sys.stderr)
+    chu = collect_chuci()
+    print("抓取纳兰词…", file=sys.stderr)
+    nalan = collect_nalan()
+    print("抓取曹操诗…", file=sys.stderr)
+    cao = collect_caocao()
 
     poems = []
     def add(p):
@@ -154,7 +246,8 @@ def main():
     orig = json.load(open(os.path.join(ROOT, "poems_orig70.json"), encoding="utf-8"))
     for p in orig:
         add({"title": p["title"], "author": p["author"],
-             "dynasty": p["dynasty"], "paragraphs": p["paragraphs"]})
+             "dynasty": p["dynasty"], "genre": guess_genre(p.get("dynasty", "")),
+             "paragraphs": p["paragraphs"]})
 
     for au, lst in tang.items():
         lst.sort(key=lambda x: (len(x["paragraphs"]), sum(len(p) for p in x["paragraphs"])))
@@ -166,6 +259,20 @@ def main():
             add(p)
     for p in shi:
         add(p)
+    for au, lst in yuan.items():
+        lst.sort(key=lambda x: (len(x["paragraphs"]), sum(len(p) for p in x["paragraphs"])))
+        for p in lst[:PER_AUTHOR]:
+            add(p)
+    for au, lst in chu.items():
+        lst.sort(key=lambda x: (len(x["paragraphs"]), sum(len(p) for p in x["paragraphs"])))
+        for p in lst[:PER_AUTHOR]:
+            add(p)
+    for au, lst in nalan.items():
+        lst.sort(key=lambda x: (len(x["paragraphs"]), sum(len(p) for p in x["paragraphs"])))
+        for p in lst[:PER_AUTHOR]:
+            add(p)
+    for p in cao.get("曹操", []):
+        add(p)
 
     # 去重
     seen, uniq = set(), []
@@ -175,6 +282,11 @@ def main():
             continue
         seen.add(k)
         uniq.append(p)
+
+    # 兜底：缺失体裁的条目按朝代推断补齐
+    for p in uniq:
+        if not p.get("genre"):
+            p["genre"] = guess_genre(p.get("dynasty", ""))
 
     # 重新编号
     for i, p in enumerate(uniq, 1):
