@@ -3,7 +3,7 @@
 > 面向「接手修改本项目」的 AI 工具或开发者。读完本文即可安全改动，无需重新踩坑。
 > 项目地址：`D:\WorkBuddy-Results\poetry-reader`
 > 线上地址：https://hengjie1993-lang.github.io/poetry-reader/
-> 当前版本：**v17**（`APP_VERSION = '17'`，最后一次提交 `622b219`）
+> 当前版本：**v18**（`APP_VERSION = '18'`，数据池扩容至 1500 首，新增元曲/楚辞/纳兰/曹操）
 
 ---
 
@@ -16,7 +16,7 @@
 | `poems.json` | 升 `APP_VERSION`（因为数据请求带 `?v=` 版本戳） | 手机端读到旧数据 |
 | 纯注释/文档 | 无需升版 | — |
 
-**当前版本号是 17，下一个改动请升到 18。**
+**当前版本号是 18，下一个改动请升到 19。**
 
 ---
 
@@ -30,7 +30,7 @@
 | 后端 | 无。零服务器、零数据库 |
 | 拼音 | 前端 pinyin-pro（MIT，CDN）**运行时实时生成**，数据文件里不存拼音 |
 | 部署 | GitHub Pages（`main` 分支根目录，push 即自动发布） |
-| 数据源 | chinese-poetry（MIT）经 opencc 转简 → 收敛为 500 首 |
+| 数据源 | chinese-poetry（MIT）经 opencc 转简 → 收敛为 1500 首（唐307/宋610/元540/清17/汉15/先秦10） |
 | 许可 | 干净。正文 MIT + 拼音库 MIT，无任何无协议数据源 |
 
 ### 为什么是零构建单文件？
@@ -43,7 +43,7 @@
 | 文件 | 作用 | 改动频率 |
 |---|---|---|
 | `index.html` | **全部应用代码**：模板 + 样式 + 逻辑（约 370 行） | 高 |
-| `poems.json` | 诗词数据，500 首 / 113KB | 低 |
+| `poems.json` | 诗词数据，1500 首 / 414KB | 低 |
 | `sw.js` | Service Worker，离线缓存。**微信内被主动禁用** | 低（但改 index 时必动） |
 | `manifest.webmanifest` | PWA 配置（`name`/`short_name` 均为「小诗囊」） | 极低 |
 | `build_poems.py` | 数据编译脚本：抓 chinese-poetry → 转简体 → 筛选 → 去重 | 低 |
@@ -174,12 +174,14 @@ v16 之前正文用**逐字 `char-pair`**（每个字上方放对应拼音）。
   "title": "静夜思",
   "author": "李白",
   "dynasty": "唐",
+  "genre": "诗",
   "paragraphs": ["床前明月光，", "疑是地上霜。", "举头望明月，", "低头思故乡。"]
 }
 ```
 
 - `paragraphs` 元素已含句末标点。
 - 宋词的 `title` 用的是词牌名（`rhythmic` 字段）。
+- `genre` 为体裁标签：`诗` / `词` / `曲` / `楚辞` / `诗经`。当前前端**仅用于数据元信息**，UI 尚未做体裁筛选（搜索框可按作者/朝代/正文全文命中）。若日后要加体裁筛选栏，直接基于该字段即可。
 - 排序规则：`build_poems.py` 按 `(段落数, 总字数)` 升序，每作者最多 `PER_AUTHOR=14` 首 —— 即**优先收录短诗**，这是为亲子朗读场景服务的。
 
 **重新生成数据**
@@ -187,7 +189,7 @@ v16 之前正文用**逐字 `char-pair`**（每个字上方放对应拼音）。
 pip install opencc-python-reimplemented
 python build_poems.py
 ```
-调收录范围改 `TANG_AUTHORS` / `SONG_AUTHORS` / `SHIJING_TITLES` / `PER_AUTHOR`。
+调收录范围改 `TANG_AUTHORS` / `SONG_AUTHORS` / `SHIJING_TITLES` / `PER_AUTHOR`，或增删 `collect_yuanqu/collect_chuci/collect_nalan/collect_caocao` 收集器。
 注意：脚本会合并 `poems_orig70.json`，**别删那个文件**。
 
 ---
@@ -198,6 +200,7 @@ python build_poems.py
 
 | 版本 | 现象 | 根因 | 解法 / 教训 |
 |---|---|---|---|
+| **v18** | 重建后 267 首（全部唐诗 + 诗经）缺 `genre` 字段 | `collect_tang` / `collect_shijing` 产出时漏写 `genre`，只有 元曲/楚辞/纳兰/曹操 收集器写了 | 给两个收集器补 `genre`（`诗` / `诗经`），并在 `main()` 末尾加兜底：缺失者按 `guess_genre(dynasty)` 补齐。**新增收集器必须写全字段** |
 | **v16** | 回退 v15 后汉字/拼音整体交错、重叠 | 逐字 `char-pair` 里长拼音 `white-space:nowrap` 溢出字块，与相邻拼音重叠，连带让汉字视觉错位 | 正文改用 **「一行汉字 + 一行拼音」** 分离布局，两行各自自然舒展，彻底消除交错 |
 | **v17** | 作者名/标题里的生僻字（如「向子諲」的「諲」）在手机上显示成豆腐块或空白 | 原数据里这些字是 **CJK 扩展区**异体字（如 U+2C907），常见手机系统字体缺字 → 渲染失败 | `poems.json` 已把这些扩展区字替换为 **CJK 基本区通行字**（U+8AF2 等）；`build_poems.py` 加 `CLEAN_MAP` 防重跑复现。**新增诗句前务必先扫一遍是否含 CJK 扩展区字符** |
 | **v15** | 强制等宽字块后拼音被压成一团（尤其长拼音如 `céngxiāng`） | `1.6em` 等宽无法容纳舒展的拼音，多个字母压缩在一个窄块内 | 回退等宽：`.char-pair` 宽度仍由内容决定，拼音舒展优先。字间距轻微不匀换拼音可读性 |
@@ -272,7 +275,7 @@ curl -s "https://hengjie1993-lang.github.io/poetry-reader/sw.js" | grep -oE "con
 curl -s "https://hengjie1993-lang.github.io/poetry-reader/poems.json?v=14" | python -c "import json,sys; print('首数:', len(json.load(sys.stdin)))"
 ```
 
-预期：`APP_VERSION = '17'`、`CACHE = 'poetry-v17'`、首数 500。
+预期：`APP_VERSION = '18'`、`CACHE = 'poetry-v18'`、首数 1500。
 
 ### 本地预览
 ```bash
@@ -302,3 +305,4 @@ python -m http.server 8090
 - `PUBLISH.md` 是早期发布流程文档，现已过时（流程已稳定在 push 即发布），可考虑合并进 README 后删除。
 - 备用 CloudStudio 链接 `https://94c95579db704928bac803b152eb3b8b.app.workbuddy.link` **仍停留在 v1 旧版（70 首）**，建议从 README 移除或直接下线，避免误存书签。
 - 暂无收藏 / 学习进度 / 语音朗读功能（当前定位是"极简朗读"，未做）。
+- v18 数据已带 `genre`（诗/词/曲/楚辞/诗经）字段，但 UI 尚未做「按体裁筛选」入口；新增的元曲、楚辞、纳兰、曹操内容目前只能靠搜索命中。若要做体裁切换栏，直接基于 `genre` 字段即可。
